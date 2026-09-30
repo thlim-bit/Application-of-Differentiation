@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Optimization Game</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX for beautiful math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Mathematical Optimization Background */
+        .math-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+            z-index: -2;
+        }
+
+        .curves-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600'%3E%3C!-- Axes --%3E%3Cline x1='0' y1='300' x2='1000' y2='300' stroke='%2394a3b8' stroke-width='2' stroke-dasharray='5,5' /%3E%3Cline x1='500' y1='0' x2='500' y2='600' stroke='%2394a3b8' stroke-width='2' stroke-dasharray='5,5' /%3E%3C!-- Cubic Curve --%3E%3Cpath d='M 100 600 C 300 -200, 700 800, 900 0' fill='none' stroke='%2338bdf8' stroke-width='4' /%3E%3C!-- Relative Maximum --%3E%3Ccircle cx='345' cy='140' r='6' fill='%23eab308' /%3E%3Cline x1='275' y1='140' x2='415' y2='140' stroke='%23eab308' stroke-width='3' /%3E%3Ctext x='345' y='120' fill='%23eab308' font-family='sans-serif' font-size='20' text-anchor='middle'%3E f'(x) = 0 (Max)%3C/text%3E%3C!-- Relative Minimum --%3E%3Ccircle cx='655' cy='460' r='6' fill='%2322c55e' /%3E%3Cline x1='585' y1='460' x2='725' y2='460' stroke='%2322c55e' stroke-width='3' /%3E%3Ctext x='655' y='490' fill='%2322c55e' font-family='sans-serif' font-size='20' text-anchor='middle'%3E f'(x) = 0 (Min)%3C/text%3E%3C/svg%3E");
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Container Styling */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Drag and Drop Zones */
+        .drop-zone {
+            border: 2px dashed #475569;
+            border-radius: 8px;
+            min-height: 65px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            background: rgba(15, 23, 42, 0.5);
+            color: #94a3b8;
+            padding: 12px;
+            font-size: 1.1rem;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        .drop-zone.filled {
+            border: 2px solid #38bdf8;
+            background: rgba(30, 41, 59, 0.9);
+            color: white;
+            border-style: solid;
+        }
+
+        /* Draggable Options */
+        .draggable-option {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            cursor: grab;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            user-select: none;
+            font-size: 1.1rem;
+        }
+
+        .draggable-option:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .draggable-option:hover {
+            border-color: #eab308;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(234, 179, 8, 0.2);
+        }
+
+        /* Formatting Helpers */
+        .katex { font-size: 1.25em !important; letter-spacing: 0.5px; } 
+        .drop-zone .katex { font-size: 1.15em !important; }
+        .draggable-option .katex { font-size: 1.15em !important; }
+
+        .hidden { display: none !important; }
+        
+        .btn {
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: white;
+            border: 2px solid #38bdf8;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.5);
+        }
+
+        /* Feedback Colors */
+        .status-correct { border-color: #22c55e !important; box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1) !important;}
+        .status-wrong { border-color: #ef4444 !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1) !important;}
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="math-bg"></div>
+    <div class="curves-overlay"></div>
+
+    <div id="start-screen" class="max-w-3xl mx-auto mt-16 glass-panel p-10 text-center">
+        <h1 class="text-4xl md:text-6xl font-bold text-sky-400 mb-6 drop-shadow-md">Optimization Master</h1>
+        <p class="text-xl text-slate-300 mb-8">Master the techniques of mathematical optimization through step-by-step calculus.</p>
+        
+        <div class="text-left bg-slate-800 p-6 rounded-xl mb-8 border border-slate-600 shadow-inner">
+            <h3 class="text-2xl text-yellow-400 mb-4 font-bold flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                How to play:
+            </h3>
+            <ul class="list-disc list-inside space-y-3 text-slate-200 text-lg">
+                <li>You will face 4 randomized optimization scenarios.</li>
+                <li>The AI will require <strong>5 specific steps</strong> to solve each problem.</li>
+                <li><strong>Drag and Drop</strong> the correct mathematical step from the options panel into the active empty space (or tap it if on mobile).</li>
+                <li>Complete all 5 steps to receive AI evaluation and your score!</li>
+            </ul>
+        </div>
+        
+        <button onclick="startGame()" class="btn text-2xl px-12 py-4 shadow-lg shadow-blue-500/50">Start Game</button>
+    </div>
+
+    <div id="game-screen" class="max-w-6xl mx-auto hidden mt-4">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h2 id="level-title" class="text-2xl md:text-3xl font-bold text-sky-400 drop-shadow">Question 1: Relative Extrema</h2>
+            <div class="text-xl font-semibold bg-slate-800 px-6 py-2 rounded-lg border border-slate-600 shadow-md">
+                Total Score: <span id="total-score" class="text-green-400 font-bold">0</span> / 20
+            </div>
+        </div>
+
+        <!-- Question Prompt Area -->
+        <div class="glass-panel p-6 mb-8 border-l-4 border-l-yellow-400">
+            <h3 class="text-xl text-slate-300 mb-3 font-semibold uppercase tracking-wider text-sm">Problem Statement</h3>
+            <div id="question-text" class="text-2xl text-white mb-6 bg-slate-900/50 p-4 rounded-lg text-center overflow-x-auto"></div>
+            <div class="flex items-center gap-3 text-md text-sky-300 bg-sky-900/40 p-4 rounded-lg border border-sky-700/50">
+                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <span><strong>AI Assistant:</strong> This question requires <strong class="text-white text-lg">5 steps</strong> of calculation to find the answer. Complete them in order below.</span>
+            </div>
+        </div>
+
+        <!-- Workspace: Steps & Options -->
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <!-- Left Side: Steps Drop Zones -->
+            <div class="w-full lg:w-3/5 glass-panel p-6 shadow-xl" id="steps-container">
+                <h3 class="text-xl text-slate-200 mb-6 font-bold border-b border-slate-600 pb-3">Your Working out:</h3>
+                <div id="steps-list" class="space-y-5">
+                    <!-- Steps injected here via JS -->
+                </div>
+            </div>
+
+            <!-- Right Side: Draggable Options -->
+            <div class="w-full lg:w-2/5 glass-panel p-6 shadow-xl flex flex-col">
+                <div id="options-header-area">
+                    <h3 id="options-title" class="text-xl text-yellow-400 mb-2 font-bold border-b border-yellow-700/50 pb-3 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
+                        Options for Step 1
+                    </h3>
+                    <p id="options-instruction" class="text-sm text-slate-400 mb-6">Drag the correct mathematical expression into the highlighted active step (or click it).</p>
+                    
+                    <div id="options-list" class="space-y-4">
+                        <!-- Options injected here via JS -->
+                    </div>
+                </div>
+
+                <!-- Feedback Area (Hidden until step 5 is done) -->
+                <div id="feedback-panel" class="hidden h-full flex flex-col">
+                    <h4 class="font-bold text-xl mb-3 text-white border-b border-slate-600 pb-2">AI Evaluation</h4>
+                    <p id="feedback-score" class="text-lg mb-4 bg-slate-900 p-3 rounded-lg text-center"></p>
+                    <div id="feedback-details" class="text-sm space-y-3 text-slate-300 mb-6 flex-grow overflow-y-auto pr-2"></div>
+                    <button id="next-btn" onclick="nextQuestion()" class="btn w-full text-lg py-3 mt-auto shadow-lg shadow-blue-500/50">Proceed to Next Problem</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="end-screen" class="max-w-3xl mx-auto mt-20 glass-panel p-10 text-center hidden">
+        <h1 class="text-5xl md:text-6xl font-bold text-green-400 mb-6 drop-shadow-lg">Simulation Complete!</h1>
+        <h2 class="text-3xl text-white mb-6 bg-slate-800 inline-block px-8 py-4 rounded-xl border border-slate-600">
+            Final Score: <span id="final-score" class="text-yellow-400 font-bold">0</span> / 20
+        </h2>
+        <p id="final-message" class="text-2xl text-slate-300 mb-10 leading-relaxed"></p>
+        <button onclick="location.reload()" class="btn text-xl px-12 py-4 shadow-lg shadow-blue-500/50">Play Again</button>
+    </div>
+
+    <script>
+        // Game State Variables
+        let currentQuestionIndex = 0;
+        let currentStepIndex = 0;
+        let totalScore = 0;
+        let generatedQuestions = [];
+        let userAnswers = []; 
+
+        // Utilities
+        const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        
+        function renderMath(text) {
+            return text.replace(/\$(.*?)\$/g, (match, math) => {
+                return katex.renderToString(math, { throwOnError: false });
+            });
+        }
+
+        const fmtTerm = (val, variable) => {
+            if (val === 0) return "";
+            if (val === 1 && variable !== "") return variable;
+            if (val === -1 && variable !== "") return "-" + variable;
+            return val + variable;
+        };
+
+        const appendTerm = (val, variable, isFirst) => {
+            if (val === 0) return "";
+            let term = fmtTerm(Math.abs(val), variable);
+            if (isFirst) return (val < 0 ? "-" : "") + term;
+            return (val < 0 ? " - " : " + ") + term;
+        };
+
+        function generateQ1() {
+            // f(x) = x^2 - 2ax + c  => relative min at x=a, y=c - a^2
+            let a = rand(2, 6);
+            let b = rand(-5, 5); // Just a random offset
+            let c = a * a + b; // Ensures y = b
+            
+            let p1 = appendTerm(1, "x^2", true);
+            let p2 = appendTerm(-2 * a, "x", false);
+            let p3 = appendTerm(c, "", false);
+            let funcStr = p1 + p2 + p3;
+
+            return {
+                typeTitle: "Question 1: Relative Extrema",
+                prompt: `Given the function $f(x) = ${funcStr}$, find the relative minimum using the derivative tests.`,
+                steps: [
+                    {
+                        instruction: "Step 1: Find the first derivative, $f'(x)$.",
+                        correct: `$f'(x) = 2x - ${2*a}$`,
+                        distractors: [`$f'(x) = x - ${a}$`, `$f'(x) = 2x + ${2*a}$`],
+                        explanation: "Using the power rule: derivative of $x^2$ is $2x$, and derivative of $-${2*a}x$ is $-${2*a}$."
+                    },
+                    {
+                        instruction: "Step 2: Set $f'(x) = 0$ to find the critical point.",
+                        correct: `$x = ${a}$`,
+                        distractors: [`$x = -${a}$`, `$x = 0$`],
+                        explanation: `Setting $2x - ${2*a} = 0$ gives $2x = ${2*a}$, which simplifies to $x = ${a}$.`
+                    },
+                    {
+                        instruction: "Step 3: Find the second derivative, $f''(x)$.",
+                        correct: `$f''(x) = 2$`,
+                        distractors: [`$f''(x) = -2$`, `$f''(x) = 2x$`],
+                        explanation: `The derivative of $2x - ${2*a}$ is the constant $2$.`
+                    },
+                    {
+                        instruction: "Step 4: Use the second derivative test at $x = ${a}$.",
+                        correct: `$f''( ${a} ) > 0$, so it is a relative minimum.`,
+                        distractors: [`$f''( ${a} ) < 0$, so it is a relative minimum.`, `$f''( ${a} ) > 0$, so it is a relative maximum.`],
+                        explanation: "Because $f''(x) = 2$ is positive, the graph is concave up (like a smile), indicating a relative minimum."
+                    },
+                    {
+                        instruction: "Step 5: Calculate the y-value of the relative minimum.",
+                        correct: `$y = ${b}$`,
+                        distractors: [`$y = ${c}$`, `$y = ${b + a}$`],
+                        explanation: `Substitute $x=${a}$ back into the original function: $f(${a}) = (${a})^2 - ${2*a}(${a}) + ${c} = ${b}$.`
+                    }
+                ]
+            };
+        }
+
+        function generateQ2() {
+            // f(x) = -x^2 + 2ax + c => max at x=a. Interval [0, 2a]
+            let a = rand(3, 7);
+            let maxVal = rand(10, 30);
+            let c = maxVal - a * a; // Since f(a) = -a^2 + 2a^2 + c = a^2 + c = maxVal
+            
+            let funcStr = `-x^2 + ${2*a}x ${c >= 0 ? '+ ' + c : '- ' + Math.abs(c)}`;
+            let interval = `[0, ${2*a}]`;
+
+            return {
+                typeTitle: "Question 2: Absolute Extrema",
+                prompt: `Find the absolute maximum of the function $f(x) = ${funcStr}$ on the closed interval $x \\in ${interval}$.`,
+                steps: [
+                    {
+                        instruction: "Step 1: Find the first derivative, $f'(x)$.",
+                        correct: `$f'(x) = -2x + ${2*a}$`,
+                        distractors: [`$f'(x) = 2x + ${2*a}$`, `$f'(x) = -x + ${a}$`],
+                        explanation: `Applying the power rule to $-x^2 + ${2*a}x$ yields $-2x + ${2*a}$.`
+                    },
+                    {
+                        instruction: "Step 2: Find the critical point inside the interval by setting $f'(x) = 0$.",
+                        correct: `$x = ${a}$`,
+                        distractors: [`$x = ${2*a}$`, `$x = -${a}$`],
+                        explanation: `Solving $-2x + ${2*a} = 0$ results in $2x = ${2*a}$, so $x = ${a}$.`
+                    },
+                    {
+                        instruction: `Step 3: Evaluate the original function at the critical point $x = ${a}$.`,
+                        correct: `$f(${a}) = ${maxVal}$`,
+                        distractors: [`$f(${a}) = ${maxVal - a}$`, `$f(${a}) = 0$`],
+                        explanation: `Substituting $x=${a}$ into $f(x)$ gives $-(${a})^2 + ${2*a}(${a}) ${c >=0?'+':'-'} ${Math.abs(c)} = ${maxVal}$.`
+                    },
+                    {
+                        instruction: `Step 4: Evaluate the function at the endpoints $x = 0$ and $x = ${2*a}$.`,
+                        correct: `$f(0) = ${c}$ and $f(${2*a}) = ${c}$`,
+                        distractors: [`$f(0) = 0$ and $f(${2*a}) = ${maxVal}$`, `$f(0) = ${c}$ and $f(${2*a}) = 0$`],
+                        explanation: "Plugging the boundaries of the interval into the original quadratic yields these values."
+                    },
+                    {
+                        instruction: "Step 5: Compare the evaluated values to identify the absolute maximum.",
+                        correct: `The absolute maximum is ${maxVal} at $x = ${a}$.`,
+                        distractors: [`The absolute maximum is ${c} at $x = 0$.`, `The absolute maximum is ${maxVal+a} at $x = ${2*a}$.`],
+                        explanation: `Comparing the y-values (${c}, ${maxVal}, ${c}), the highest possible value is ${maxVal}.`
+                    }
+                ]
+            };
+        }
+
+        function generateQ3() {
+            // R(x) = p*x, C(x) = x^2 + cx + d
+            // P(x) = R(x) - C(x) = -x^2 + (p-c)x - d. Max profit at x = (p-c)/2
+            let k = rand(5, 12); // optimal units (x)
+            let cCost = rand(2, 6); // linear cost coeff
+            let p = (2 * k) + cCost; // price
+            let constCost = rand(20, 80);
+
+            let profitMax = -(k*k) + (p - cCost)*k - constCost;
+
+            return {
+                typeTitle: "Question 3: Financial Optimization",
+                prompt: `A company produces $x$ units. The revenue is $R(x) = ${p}x$ and the cost is $C(x) = x^2 + ${cCost}x + ${constCost}$. Find the production level $x$ that maximizes profit.`,
+                steps: [
+                    {
+                        instruction: "Step 1: Formulate the Profit function, $P(x) = R(x) - C(x)$.",
+                        correct: `$P(x) = -x^2 + ${p - cCost}x - ${constCost}$`,
+                        distractors: [`$P(x) = x^2 + ${p + cCost}x + ${constCost}$`, `$P(x) = -x^2 + ${p}x - ${cCost}$`],
+                        explanation: "Profit is Revenue minus Cost. Subtracting the entire cost polynomial flips all its signs."
+                    },
+                    {
+                        instruction: "Step 2: Find the marginal profit, $P'(x)$.",
+                        correct: `$P'(x) = -2x + ${p - cCost}$`,
+                        distractors: [`$P'(x) = 2x - ${p - cCost}$`, `$P'(x) = -x + ${p - cCost}$`],
+                        explanation: "Take the derivative of the profit polynomial function using the power rule."
+                    },
+                    {
+                        instruction: "Step 3: Set $P'(x) = 0$ to find the critical production level.",
+                        correct: `$x = ${k}$ units`,
+                        distractors: [`$x = ${k * 2}$ units`, `$x = ${p - cCost}$ units`],
+                        explanation: `Solving $-2x + ${p - cCost} = 0$ gives $2x = ${p - cCost}$, so $x = ${k}$.`
+                    },
+                    {
+                        instruction: "Step 4: Verify it is a maximum using the second derivative test.",
+                        correct: `$P''(x) = -2$, which is $< 0$ (Maximum).`,
+                        distractors: [`$P''(x) = 2$, which is $> 0$ (Minimum).`, `$P''(x) = 0$, test is inconclusive.`],
+                        explanation: "The second derivative is a negative constant, which guarantees a downward-opening parabola and thus a maximum point."
+                    },
+                    {
+                        instruction: "Step 5: Calculate the maximum profit $P(x)$ at this level.",
+                        correct: `Max Profit = $${profitMax}$`,
+                        distractors: [`Max Profit = $${profitMax + constCost}$`, `Max Profit = $${p * k}$`],
+                        explanation: `Substitute $x=${k}$ into $P(x)$: $-(${k})^2 + ${p-cCost}(${k}) - ${constCost} = ${profitMax}$.`
+                    }
+                ]
+            };
+        }
+
+        function generateQ4() {
+            // f(x) = x^3 - 3ax^2 + bx + c. Inflection at x=a.
+            let a = rand(1, 4);
+            let b = rand(2, 8);
+            let c = rand(-10, 10);
+            
+            let p1 = "x^3";
+            let p2 = appendTerm(-3 * a, "x^2", false);
+            let p3 = appendTerm(b, "x", false);
+            let p4 = appendTerm(c, "", false);
+            
+            let yVal = Math.pow(a, 3) - 3*a*Math.pow(a,2) + b*a + c;
+
+            return {
+                typeTitle: "Question 4: Inflection (Reflection) Point",
+                prompt: `Given the cubic function $f(x) = ${p1}${p2}${p3}${p4}$, find the coordinates of its inflection point (reflection point).`,
+                steps: [
+                    {
+                        instruction: "Step 1: Find the first derivative, $f'(x)$.",
+                        correct: `$f'(x) = 3x^2 - ${6*a}x + ${b}$`,
+                        distractors: [`$f'(x) = x^2 - ${3*a}x + ${b}$`, `$f'(x) = 3x^2 - ${3*a}x + ${c}$`],
+                        explanation: "Apply the power rule to each term of the cubic polynomial."
+                    },
+                    {
+                        instruction: "Step 2: Find the second derivative, $f''(x)$.",
+                        correct: `$f''(x) = 6x - ${6*a}$`,
+                        distractors: [`$f''(x) = 6x - ${3*a}$`, `$f''(x) = 3x - ${6*a}$`],
+                        explanation: "Take the derivative of $f'(x)$. The derivative of $3x^2$ is $6x$."
+                    },
+                    {
+                        instruction: "Step 3: Set $f''(x) = 0$ to find the possible x-coordinate.",
+                        correct: `$x = ${a}$`,
+                        distractors: [`$x = -${a}$`, `$x = ${2*a}$`],
+                        explanation: `Solve $6x - ${6*a} = 0$, giving $6x = ${6*a}$, therefore $x = ${a}$.`
+                    },
+                    {
+                        instruction: "Step 4: Calculate the corresponding y-coordinate.",
+                        correct: `$y = ${yVal}$`,
+                        distractors: [`$y = ${yVal + a}$`, `$y = 0$`],
+                        explanation: `Plug $x = ${a}$ into the original function: $(${a})^3 - ${3*a}(${a})^2 + ${b}(${a}) ${c>=0?'+':'-'} ${Math.abs(c)} = ${yVal}$.`
+                    },
+                    {
+                        instruction: "Step 5: State the final coordinate of the inflection point.",
+                        correct: `$( ${a}, ${yVal} )$`,
+                        distractors: [`$( ${yVal}, ${a} )$`, `$( 0, ${c} )$`],
+                        explanation: "Combine the calculated x and y values into a proper coordinate pair (x, y)."
+                    }
+                ]
+            };
+        }
+
+
+        function startGame() {
+            generatedQuestions = [
+                generateQ1(),
+                generateQ2(),
+                generateQ3(),
+                generateQ4()
+            ];
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            currentQuestionIndex = 0;
+            totalScore = 0;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            let q = generatedQuestions[currentQuestionIndex];
+            currentStepIndex = 0;
+            userAnswers = []; 
+            
+            document.getElementById('level-title').innerHTML = q.typeTitle;
+            document.getElementById('total-score').innerText = totalScore;
+            document.getElementById('question-text').innerHTML = renderMath(q.prompt);
+            
+            // Reset right panel UI
+            document.getElementById('feedback-panel').classList.add('hidden');
+            document.getElementById('options-header-area').classList.remove('hidden');
+
+            renderStepsUI(q);
+            renderOptionsForCurrentStep(q);
+        }
+
+        function renderStepsUI(q) {
+            const container = document.getElementById('steps-list');
+            container.innerHTML = ''; 
+
+            q.steps.forEach((step, index) => {
+                let div = document.createElement('div');
+                div.className = "flex flex-col mb-2";
+                div.innerHTML = `
+                    <p class="text-slate-300 font-semibold mb-2 ml-1">${renderMath(step.instruction)}</p>
+                    <div id="drop-zone-${index}" 
+                         class="drop-zone ${index === 0 ? 'border-sky-400 bg-sky-900/30 shadow-[0_0_10px_rgba(56,189,248,0.3)]' : 'opacity-40 grayscale pointer-events-none'}"
+                         data-step="${index}"
+                         ondragover="handleDragOver(event)"
+                         ondragleave="handleDragLeave(event)"
+                         ondrop="handleDrop(event)">
+                         ${index === 0 ? 'Drop your answer here' : 'Locked'}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function renderOptionsForCurrentStep(q) {
+            const optionsContainer = document.getElementById('options-list');
+            optionsContainer.innerHTML = '';
+            
+            if (currentStepIndex >= q.steps.length) return;
+
+            document.getElementById('options-title').innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
+                Options for Step ${currentStepIndex + 1}
+            `;
+            
+            let stepData = q.steps[currentStepIndex];
+            
+            let options = [
+                { text: stepData.correct, isCorrect: true, idx: 0 },
+                { text: stepData.distractors[0], isCorrect: false, idx: 1 },
+                { text: stepData.distractors[1], isCorrect: false, idx: 2 }
+            ];
+            options = shuffleArray(options);
+
+            options.forEach((opt, i) => {
+                let div = document.createElement('div');
+                div.className = "draggable-option";
+                div.draggable = true;
+                div.id = `drag-opt-${i}`;
+                div.onclick = () => fillStepFallback(opt); // Mobile friendly fallback
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify(opt));
+                    div.style.opacity = '0.4';
+                    div.style.transform = 'scale(0.95)';
+                };
+                div.ondragend = () => { 
+                    div.style.opacity = '1'; 
+                    div.style.transform = 'scale(1)';
+                };
+                div.innerHTML = renderMath(opt.text);
+                optionsContainer.appendChild(div);
+            });
+        }
+
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            let stepIdx = parseInt(e.currentTarget.getAttribute('data-step'));
+            if (stepIdx === currentStepIndex) {
+                e.currentTarget.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            let dropZone = e.currentTarget;
+            dropZone.classList.remove('drag-over');
+            
+            let stepIdx = parseInt(dropZone.getAttribute('data-step'));
+            if (stepIdx !== currentStepIndex) return; 
+
+            let optDataStr = e.dataTransfer.getData('text/plain');
+            if (!optDataStr) return;
+            
+            let optData = JSON.parse(optDataStr);
+            processAnswer(optData, dropZone);
+        }
+
+        function fillStepFallback(optData) {
+            let dropZone = document.getElementById(`drop-zone-${currentStepIndex}`);
+            if(dropZone) processAnswer(optData, dropZone);
+        }
+
+        function processAnswer(optData, dropZone) {
+            userAnswers[currentStepIndex] = optData;
+            
+            dropZone.innerHTML = renderMath(optData.text);
+            dropZone.classList.remove('border-sky-400', 'bg-sky-900/30', 'shadow-[0_0_10px_rgba(56,189,248,0.3)]');
+            dropZone.classList.add('filled');
+            dropZone.removeAttribute('ondragover'); 
+            dropZone.onclick = null; // disable click
+
+            currentStepIndex++;
+
+            if (currentStepIndex < 5) {
+                let nextZone = document.getElementById(`drop-zone-${currentStepIndex}`);
+                if (nextZone) {
+                    nextZone.classList.remove('opacity-40', 'grayscale', 'pointer-events-none');
+                    nextZone.classList.add('border-sky-400', 'bg-sky-900/30', 'shadow-[0_0_10px_rgba(56,189,248,0.3)]');
+                    nextZone.innerHTML = 'Drop your answer here';
+                }
+                renderOptionsForCurrentStep(generatedQuestions[currentQuestionIndex]);
+            } else {
+                evaluateQuestion();
+            }
+        }
+
+        function evaluateQuestion() {
+            document.getElementById('options-header-area').classList.add('hidden');
+            
+            let q = generatedQuestions[currentQuestionIndex];
+            let qScore = 0;
+            let feedbackHTML = "";
+
+            userAnswers.forEach((ans, idx) => {
+                let dropZone = document.getElementById(`drop-zone-${idx}`);
+                let stepTitle = `Step ${idx + 1}`;
+                
+                if (ans.isCorrect) {
+                    qScore++;
+                    if (dropZone) dropZone.classList.add('status-correct');
+                    feedbackHTML += `<div class="text-green-400 bg-green-900/20 p-2 rounded mb-2">✔️ <strong>${stepTitle} Correct.</strong></div>`;
+                } else {
+                    if (dropZone) dropZone.classList.add('status-wrong');
+                    feedbackHTML += `
+                        <div class="mb-3 p-3 bg-slate-900 rounded border border-red-900/70 shadow-md">
+                            <span class="text-red-400">❌ <strong>${stepTitle} Incorrect.</strong></span><br>
+                            <span class="text-slate-300 text-sm mt-1 block leading-relaxed"><strong>Why:</strong> ${renderMath(q.steps[idx].explanation)}</span>
+                            <span class="text-sky-300 text-sm block mt-2 p-2 bg-slate-800 rounded"><strong>Correct answer was:</strong> ${renderMath(q.steps[idx].correct)}</span>
+                        </div>
+                    `;
+                }
+            });
+
+            totalScore += qScore;
+            document.getElementById('total-score').innerText = totalScore;
+            
+            const feedbackPanel = document.getElementById('feedback-panel');
+            if (feedbackPanel) feedbackPanel.classList.remove('hidden');
+            
+            const feedbackScore = document.getElementById('feedback-score');
+            if (feedbackScore) feedbackScore.innerHTML = `You got <strong class="text-yellow-400 text-2xl">${qScore}/5</strong> correct for this scenario.`;
+            
+            const feedbackDetails = document.getElementById('feedback-details');
+            if (feedbackDetails) feedbackDetails.innerHTML = feedbackHTML;
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < generatedQuestions.length) {
+                loadQuestion();
+            } else {
+                showEndScreen();
+            }
+        }
+
+        function showEndScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = totalScore;
+            
+            let msg = "";
+            if (totalScore === 20) msg = "Flawless! You are a master of Calculus Optimization! The AI is highly impressed.";
+            else if (totalScore >= 15) msg = "Great job! You have a solid understanding of optimization techniques.";
+            else if (totalScore >= 10) msg = "Good effort! Review the AI feedback to refine your mathematical skills.";
+            else msg = "Calculus can be tough! Keep practicing these steps to master the concepts.";
+            
+            document.getElementById('final-message').innerText = msg;
+        }
+
+    </script>
+</body>
+</html>
